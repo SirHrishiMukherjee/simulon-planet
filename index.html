@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Planetary Simulonic ⇄ Infosophic • Globe + Lens + Dynamic Pareto</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#161a22; --card:#1c2230; --text:#e8eef7; --muted:#9bb0c8;
+    --accent:#61dafb; --good:#6ee7a6; --warn:#fbbf24; --grid:#2a3242; --hl:#9f7aea; --bad:#f87171;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%; margin:0; background:linear-gradient(180deg,#0c0f14,#0f1115); color:var(--text); font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;}
+  header{
+    position:sticky; top:0; z-index:10; display:flex; align-items:center; justify-content:space-between;
+    padding:12px 16px; border-bottom:1px solid #202636; background:rgba(22,26,34,.85); backdrop-filter: blur(6px);
+  }
+  .brand{display:flex; gap:10px; align-items:center}
+  .logo{width:36px; height:36px; border-radius:10px; background:radial-gradient(circle at 30% 30%, #7cfcff, #4c50ff 45%, #1f1340 70%); box-shadow:0 0 24px rgba(97,218,251,.35), inset 0 0 18px rgba(255,255,255,.12);}
+  .title{font-weight:700}
+  .sub{font-size:12px; color:var(--muted)}
+  #stageWrap{position:relative; width:100%; height:calc(100vh - 64px);}
+  canvas{display:block; width:100%; height:100%; background:linear-gradient(180deg,#0b0e17,#0a0d14);}
+  .panel{
+    position:absolute; top:12px; left:12px; width:380px; max-width:calc(100% - 24px); border:1px solid #232a3a; background:rgba(22,26,34,.9);
+    border-radius:14px; padding:12px; box-shadow:0 10px 30px rgba(0,0,0,.25), inset 0 0 0 1px rgba(255,255,255,.02);
+  }
+  .panel .h{font-size:12px; text-transform:uppercase; letter-spacing:.12em; color:var(--muted); margin:2px 0 8px;}
+  .row{display:flex; gap:10px; align-items:center; margin:8px 0}
+  .row input[type="range"]{flex:1}
+  .btn{padding:7px 10px; background:var(--card); border:1px solid #2a3147; color:var(--text); border-radius:10px; cursor:pointer; font-size:13px;}
+  .btn:hover{border-color:#3a425e}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12px}
+  textarea.code{width:100%; min-height:150px; resize:vertical; border:1px solid #283048; border-radius:12px; background:#151a26; color:#e8eef7; padding:10px; outline:none;}
+  .legend{
+    position:absolute; right:12px; top:12px; background:rgba(16,20,30,.78); padding:8px 10px; border:1px solid #27304a; border-radius:10px; font-size:12px;
+  }
+  .pill{display:inline-block; padding:2px 8px; border-radius:999px; margin:2px 2px; border:1px solid #2a3250}
+  .pill.blue{background:rgba(97,218,251,.12); color:#bdefff}
+  .pill.green{background:rgba(110,231,166,.12); color:#c7f8de}
+  .pill.purple{background:rgba(159,122,234,.12); color:#e1d1ff}
+  .pill.gold{background:rgba(251,191,36,.12); color:#ffe3a3}
+  .pill.pos{background:rgba(110,231,166,.12); color:#bdf8dc; border-color:#245c41}
+  .pill.neg{background:rgba(248,113,113,.12); color:#ffd1d1; border-color:#5c2424}
+  .stats{
+    position:absolute; right:12px; bottom:12px; background:rgba(16,20,30,.78); padding:10px; border:1px solid #27304a; border-radius:10px; font-size:12px;
+  }
+  .statLine{display:flex; justify-content:space-between; gap:12px; margin:4px 0}
+  .muted{color:var(--muted)}
+  .outlookGrid{
+    display:grid; grid-template-columns: 1fr auto; gap:6px; background:rgba(21,26,38,.7);
+    border:1px solid #27304a; border-radius:10px; padding:8px; margin:8px 0;
+  }
+  .toggle{padding:4px 8px; border-radius:999px; border:1px solid #2a3147; cursor:pointer; font-size:12px; background:linear-gradient(180deg, #1f2a44, #1a2440);}
+  .toggle.pos{border-color:#2b6b54}
+  .toggle.neg{border-color:#6b2b2b}
+  .swatch{display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:middle}
+  .note{font-size:11px; color:var(--muted); margin-top:6px; line-height:1.35}
+  .lensHUD{
+    position:absolute; left:50%; transform:translateX(-50%); bottom:12px;
+    background:rgba(16,20,30,.78); padding:8px 10px; border:1px solid #27304a; border-radius:10px; font-size:12px;
+    display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+  }
+  .chk{display:flex; align-items:center; gap:8px; font-size:12px}
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <div class="title">Planetary Simulonic ⇄ Infosophic Lab</div>
+        <div class="sub">Orthographic globe • ART t-field • Outlooks • Lens • Dynamic Pareto</div>
+      </div>
+    </div>
+    <div class="sub">Infosophic: Gösta Greimel • Simulonic: Hrishi Mukherjee • Integration: Greimel & Mukherjee</div>
+  </header>
+
+  <div id="stageWrap">
+    <canvas id="stage"></canvas>
+
+    <div class="panel" id="ctrlPanel">
+      <div class="h">Planet & Camera</div>
+      <div class="row">
+        <span class="muted">Planet</span>
+        <select id="selPlanet" class="btn">
+          <option value="earth">Earth</option>
+          <option value="mars">Mars</option>
+        </select>
+        <span class="muted">Drag globe to rotate</span>
+      </div>
+
+      <div class="h">Pareto (Dynamic)</div>
+      <div class="row"><span class="muted">τ (manual)</span><input id="rngTau" type="range" min="0.05" max="1.5" step="0.01"><span class="mono" id="labTau"></span></div>
+      <div class="row chk"><input id="chkAutoPareto" type="checkbox" /><label for="chkAutoPareto">Auto Pareto (keep ~20% head for target mass)</label></div>
+      <div class="row"><span class="muted">Target head mass</span><input id="rngTargetMass" type="range" min="0.50" max="0.95" step="0.01" style="flex:1"><span class="mono" id="labTargetMass"></span></div>
+
+      <div class="h">Infosophic/Simulonic Field</div>
+      <div class="row"><span class="muted">Quality Q</span><input id="rngQ" type="range" min="0.5" max="3" step="0.05"><span class="mono" id="labQ"></span></div>
+      <div class="row"><span class="muted">Intent</span>
+        <select id="selAxis" class="btn"><option value="radial">radial</option><option value="lon">longitude</option><option value="lat">latitude</option></select>
+        <span class="muted">Strength</span><input id="rngIntent" type="range" min="0" max="3" step="0.05" style="flex:1"><span class="mono" id="labIntent"></span>
+      </div>
+
+      <div class="h">ART Distribution</div>
+      <div class="row"><span class="muted">ν (DOF)</span><input id="rngNu" type="range" min="1" max="12" step="1"><span class="mono" id="labNu"></span></div>
+      <div class="row"><span class="muted">Points</span><input id="rngPts" type="range" min="60" max="3000" step="20"><span class="mono" id="labPts"></span></div>
+      <div class="row"><span class="muted">Mood Strength</span><input id="rngMood" type="range" min="0" max="2" step="0.05" style="flex:1"><span class="mono" id="labMood"></span></div>
+      <div class="row"><button class="btn" id="btnShuffle">Shuffle Seed</button><button class="btn" id="btnClear">Clear Lock-ons</button></div>
+
+      <div class="h">Outlooks (per dimension)</div>
+      <div id="outlookGrid" class="outlookGrid"></div>
+      <div class="note">Tags are simulation labels only—abstract categories to test geometry. No real-world judgments are implied.</div>
+
+      <div class="h">SimuLang Hook (mini)</div>
+      <textarea id="simTxt" class="code mono" spellcheck="false"></textarea>
+      <div class="row"><button class="btn" id="btnApply">Apply</button><button class="btn" id="btnReset">Reset</button></div>
+    </div>
+
+    <div class="legend">
+      <span class="pill blue">ART t-field</span>
+      <span class="pill green">Lock-on</span>
+      <span class="pill purple">Infosophic ⇄ Simulonic</span>
+      <span class="pill gold">ds² gauges</span>
+      <span class="pill pos">Optimistic</span>
+      <span class="pill neg">Pessimistic</span>
+    </div>
+
+    <div class="stats" id="statsBox">
+      <div class="statLine"><span class="muted">ds² (Green)</span><span class="mono" id="statG">0.000</span></div>
+      <div class="statLine"><span class="muted">ds² (Vacuum)</span><span class="mono" id="statV">0.000</span></div>
+      <div class="statLine"><span class="muted">Locked</span><span class="mono" id="statL">0</span></div>
+      <div class="statLine"><span class="muted">τ</span><span class="mono" id="statT">0.00</span></div>
+      <div class="statLine"><span class="muted">Head k/N</span><span class="mono" id="statK">0/0</span></div>
+      <div class="statLine"><span class="muted">Head mass</span><span class="mono" id="statMass">0.00</span></div>
+      <div class="statLine"><span class="muted">Optimistic</span><span class="mono" id="statPos">0</span></div>
+      <div class="statLine"><span class="muted">Pessimistic</span><span class="mono" id="statNeg">0</span></div>
+    </div>
+
+    <div class="lensHUD">
+      <button class="btn" id="btnLensMode">Lens: Infosophic (I)</button>
+      <span class="muted">Angular radius</span>
+      <input id="rngLensR" type="range" min="5" max="60" step="1" style="width:200px">
+      <span class="mono" id="labLensR">20°</span>
+      <span class="muted">Drag the circle • Press S to switch to Simulonic</span>
+    </div>
+  </div>
+
+<script>
+/* ---------- Sizing ---------- */
+const stage = document.getElementById('stage');
+const wrap = document.getElementById('stageWrap');
+function fitCanvas(){
+  const headerH = document.querySelector('header').offsetHeight || 64;
+  wrap.style.height = `calc(100vh - ${headerH}px)`;
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  stage.width = Math.floor(wrap.clientWidth * dpr);
+  stage.height = Math.floor(wrap.clientHeight * dpr);
+  stage.getContext('2d').setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener('resize', fitCanvas, {passive:true});
+fitCanvas();
+
+/* ---------- RNG + math ---------- */
+function rng(seed){ let t = seed>>>0; return ()=>{ t += 0x6D2B79F5; let r = Math.imul(t ^ (t>>>15), 1|t); r ^= r + Math.imul(r ^ (r>>>7), 61|r); return ((r ^ (r>>>14))>>>0)/4294967296; }; }
+function randn(r){ let u=1-r(), v=1-r(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+function chiSquare(df, r){ let s=0; for(let i=0;i<df;i++){ const z=randn(r); s += z*z; } return s; }
+function studentT(df, r){ const z=randn(r); return z / Math.sqrt(chiSquare(df,r)/df); }
+function softmax(arr, temp=1){ const m=Math.max(...arr); const ex=arr.map(v=>Math.exp((v-m)/Math.max(1e-6,temp))); const s=ex.reduce((a,b)=>a+b,0); return ex.map(e=>e/s); }
+const toRad = d=>d*Math.PI/180, toDeg = r=>r*180/Math.PI;
+
+/* ---------- SimuLang ---------- */
+const defaultSimuLang = `# SimuLang mini-hook (planetary)
+pareto.tau = 0.55
+quality.q = 1.00
+intent.axis = radial      # radial | lon | lat
+intent.strength = 1.20
+art.nu = 3
+art.points = 900
+lockon.k = 8
+mood.strength = 1.0
+auto.pareto = true
+target.mass = 0.80
+`;
+function parseSimuLang(src){
+  const cfg = { paretoTau:0.55, qualityQ:1.0, intentAxis:'radial', intentStrength:1.2, artNu:3, artPoints:900, lockTopK:8, moodStrength:1.0, autoPareto:true, targetMass:0.80 };
+  const lines = src.split('\n').map(s=>s.trim()).filter(Boolean);
+  for(const l of lines){
+    const m = l.match(/^([a-z.]+)\s*=\s*([^\#]+)(?:\#.*)?$/i); if(!m) continue;
+    const k=m[1].toLowerCase().trim(), v=m[2].trim();
+    if(k==='pareto.tau') cfg.paretoTau = parseFloat(v);
+    if(k==='quality.q') cfg.qualityQ = parseFloat(v);
+    if(k==='intent.axis') cfg.intentAxis = (''+v).toLowerCase();
+    if(k==='intent.strength') cfg.intentStrength = parseFloat(v);
+    if(k==='art.nu') cfg.artNu = Math.max(1, parseInt(v));
+    if(k==='art.points') cfg.artPoints = Math.max(10, Math.min(5000, parseInt(v)));
+    if(k==='lockon.k') cfg.lockTopK = Math.max(0, parseInt(v));
+    if(k==='mood.strength') cfg.moodStrength = Math.max(0, parseFloat(v));
+    if(k==='auto.pareto') cfg.autoPareto = (''+v).toLowerCase()==='true';
+    if(k==='target.mass') cfg.targetMass = Math.min(0.95, Math.max(0.5, parseFloat(v)));
+  }
+  return cfg;
+}
+
+/* ---------- Outlooks ---------- */
+const DIMENSIONS = ['Creed','Race','Class','Caste','Tribe','Nationality','Continentality','Planetarity','Occupation'];
+let outlook = Object.fromEntries(DIMENSIONS.map(d => [d, +1]));
+function hueForDim(i){ return (i*37)%360; }
+
+/* ---------- State ---------- */
+let seed = 42;
+let cfg = parseSimuLang(defaultSimuLang);
+let planet = 'earth';
+let lockSet = new Set();
+let points = [];   // [{lon,lat,x,y,sal,dim,mood,visible}]
+let weights = [];
+const ctx = stage.getContext('2d');
+
+/* Globe view (orthographic) */
+const globe = {
+  lon0: 0,        // center longitude (deg)
+  lat0: 15,       // center latitude (deg)
+  dragging:false, lastX:0, lastY:0
+};
+
+/* Lens on sphere */
+const lens = {
+  lon: 0, lat: 0,   // center on sphere (deg)
+  ang: 20,          // angular radius (deg)
+  mode: 'infosophic', // infosophic | simulonic
+  dragging:false
+};
+
+/* ---------- Elements ---------- */
+const E = {
+  planetSel: document.getElementById('selPlanet'),
+  tau: rngTau, q: rngQ, intent: rngIntent, axis: selAxis, nu: rngNu, pts: rngPts, mood: rngMood,
+  labTau, labQ, labIntent, labNu, labPts, labMood,
+  statG, statV, statL, statT, statPos, statNeg, statK, statMass,
+  simTxt: simTxt, btnApply, btnReset, btnShuffle, btnClear,
+  outlookGrid: outlookGrid,
+  btnLensMode: btnLensMode, rngLensR: rngLensR, labLensR: labLensR,
+  chkAutoPareto: chkAutoPareto, rngTargetMass: rngTargetMass, labTargetMass: labTargetMass
+};
+E.simTxt.value = defaultSimuLang;
+
+/* ---------- Projection (Orthographic) ---------- */
+function proj(lon, lat){
+  const R = Math.min(stage.clientWidth, stage.clientHeight)*0.42;
+  const cx = stage.clientWidth/2, cy = stage.clientHeight/2;
+  const lam = toRad(lon), phi = toRad(lat);
+  const lam0 = toRad(globe.lon0), phi0 = toRad(globe.lat0);
+  const cosc = Math.sin(phi0)*Math.sin(phi) + Math.cos(phi0)*Math.cos(phi)*Math.cos(lam-lam0);
+  const visible = cosc >= 0;
+  const x = R * (Math.cos(phi) * Math.sin(lam - lam0)) + cx;
+  const y = R * (Math.cos(phi0)*Math.sin(phi) - Math.sin(phi0)*Math.cos(phi)*Math.cos(lam - lam0)) + cy;
+  return {x,y,visible,R,cx,cy};
+}
+function invProj(x, y){
+  const R = Math.min(stage.clientWidth, stage.clientHeight)*0.42;
+  const cx = stage.clientWidth/2, cy = stage.clientHeight/2;
+  const lam0 = toRad(globe.lon0), phi0 = toRad(globe.lat0);
+  const X = (x - cx)/R, Y = (y - cy)/R;
+  const rho = Math.hypot(X,Y); if(rho>1) return null;
+  const c = Math.asin(rho);
+  let phi = Math.asin( Math.cos(c)*Math.sin(phi0) + (Y * Math.sin(c) * Math.cos(phi0) / (rho||1)) );
+  let lam = lam0 + Math.atan2( X * Math.sin(c), (rho*Math.cos(phi0)*Math.cos(c) - Y*Math.sin(phi0)*Math.sin(c)) );
+  return {lon: ((toDeg(lam)+540)%360)-180, lat: toDeg(phi)};
+}
+
+/* ---------- Lens small-circle path ---------- */
+function lensPath(ctx){
+  const steps = 180;
+  const alpha = toRad(lens.ang);
+  const lam1 = toRad(lens.lon), phi1 = toRad(lens.lat);
+  ctx.beginPath();
+  for(let i=0;i<=steps;i++){
+    const theta = 2*Math.PI * i/steps;
+    // destination point at bearing theta and distance alpha
+    const phi2 = Math.asin( Math.sin(phi1)*Math.cos(alpha) + Math.cos(phi1)*Math.sin(alpha)*Math.cos(theta) );
+    const lam2 = toRad(lens.lon) + Math.atan2( Math.sin(theta)*Math.sin(alpha)*Math.cos(phi1), Math.cos(alpha) - Math.sin(phi1)*Math.sin(phi2) );
+    const P = proj(toDeg(lam2), toDeg(phi2));
+    if(i===0) ctx.moveTo(P.x,P.y); else ctx.lineTo(P.x,P.y);
+  }
+}
+
+/* ---------- Globe draw ---------- */
+function drawGlobeBase(){
+  const {cx, cy, R} = proj(globe.lon0, globe.lat0);
+  // sphere shading
+  const grad = ctx.createRadialGradient(cx - R*0.35, cy - R*0.35, R*0.2, cx, cy, R*1.05);
+  if(planet==='earth'){
+    grad.addColorStop(0,'#224b87'); grad.addColorStop(1,'#0a1220');
+  }else{
+    grad.addColorStop(0,'#8b3f2b'); grad.addColorStop(1,'#2a0f0b');
+  }
+  ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2);
+  ctx.fillStyle=grad; ctx.fill();
+  ctx.lineWidth=1.2; ctx.strokeStyle='rgba(255,255,255,.08)'; ctx.stroke();
+
+  // graticule
+  ctx.save(); ctx.clip();
+  ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth=0.8;
+  for(let lat=-60; lat<=60; lat+=30){
+    ctx.beginPath();
+    for(let lon=-180; lon<=180; lon+=3){
+      const P = proj(lon, lat); if(!P.visible) continue;
+      if(lon===-180) ctx.moveTo(P.x,P.y); else ctx.lineTo(P.x,P.y);
+    }
+    ctx.stroke();
+  }
+  for(let lon=-180; lon<=180; lon+=30){
+    ctx.beginPath();
+    for(let lat=-80; lat<=80; lat+=2){
+      const P = proj(lon, lat); if(!P.visible) continue;
+      if(lat===-80) ctx.moveTo(P.x,P.y); else ctx.lineTo(P.x,P.y);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* ---------- ART sampling on sphere ---------- */
+function buildART(){
+  const r = rng(seed);
+  points=[]; let pos=0, neg=0;
+
+  // base cluster center around lens center for fun; you can change to (0,0) if desired
+  const baseLon = lens.lon, baseLat = lens.lat;
+  const scaleLon = 40; // degrees spread
+  const scaleLat = 25;
+
+  for(let i=0;i<cfg.artPoints;i++){
+    const dim = DIMENSIONS[i % DIMENSIONS.length];
+
+    // sample heavy-tailed deltas
+    const dlon = studentT(cfg.artNu,r) * scaleLon;
+    const dlat = studentT(cfg.artNu,r) * scaleLat;
+
+    let lon = ((baseLon + dlon + 540) % 360) - 180;
+    let lat = Math.max(-89.9, Math.min(89.9, baseLat + dlat));
+
+    // Intent alignment
+    let align=0;
+    if(cfg.intentAxis==='lon') align = 1 - Math.min(1, Math.abs(dlon)/scaleLon);
+    else if(cfg.intentAxis==='lat') align = 1 - Math.min(1, Math.abs(dlat)/scaleLat);
+    else { // radial on sphere (angle from base)
+      const ang = greatCircleDeg(baseLon, baseLat, lon, lat);
+      align = Math.max(0, 1 - ang/60);
+    }
+
+    // base salience decays with angular distance
+    const angDist = greatCircleDeg(baseLon, baseLat, lon, lat);
+    const base = 1/(1 + (angDist/45)**2);
+
+    // outlook influence
+    const mood = outlook[dim] || +1;
+    const moodGain = 1 + cfg.moodStrength*(mood*0.25);
+
+    const sal = base * (1 + cfg.intentStrength*align) * moodGain;
+
+    const P = proj(lon, lat);
+    points.push({lon,lat,x:P.x,y:P.y,visible:P.visible,sal,dim,mood});
+
+    if(mood>=0) pos++; else neg++;
+  }
+  // normalize salience and weights
+  const maxS = points.reduce((m,p)=>Math.max(m,p.sal),1e-6);
+  for(const p of points){ p.sal/=maxS; }
+  recomputeWeights();
+  // auto top-K lock-ons
+  lockSet.clear();
+  if(cfg.lockTopK>0){
+    const top=[...points.map((p,i)=>[p.sal,i])].sort((a,b)=>b[0]-a[0]).slice(0,cfg.lockTopK).map(x=>x[1]);
+    for(const i of top) lockSet.add(i);
+  }
+  statPos.textContent = pos; statNeg.textContent = neg;
+}
+function recomputeWeights(){
+  weights = softmax(points.map(p=>p.sal), Math.max(0.05,cfg.paretoTau));
+}
+
+/* Great-circle distance in degrees */
+function greatCircleDeg(lon1,lat1,lon2,lat2){
+  const lam1=toRad(lon1), phi1=toRad(lat1);
+  const lam2=toRad(lon2), phi2=toRad(lat2);
+  const d = 2*Math.asin( Math.sqrt( Math.sin((phi2-phi1)/2)**2 + Math.cos(phi1)*Math.cos(phi2)*Math.sin((lam2-lam1)/2)**2 ) );
+  return toDeg(d);
+}
+
+/* ---------- Gauges (global, projected) ---------- */
+function computeDS2Dual(lockedIdx){
+  if(points.length===0) return {g:0,v:0};
+  let active = lockedIdx.length ? lockedIdx : [...points.map((p,i)=>[p.sal,i])]
+    .sort((a,b)=>b[0]-a[0]).slice(0, Math.max(3, Math.floor(points.length*0.05))).map(x=>x[1]);
+  const Qn = cfg.qualityQ;
+  // kernel proxies now use projected positions on the globe
+  const K = (a,b)=>{ const dx=a.x-b.x, dy=a.y-b.y, d2=dx*dx+dy*dy; return Math.exp(-d2/3000); };
+  const G = (a,b)=>{ const dx=a.x-b.x, dy=a.y-b.y; return 1/(Math.hypot(dx,dy)+1e-3); };
+  let dsG=0, dsV=0;
+  for(const i of active){
+    for(let j=0;j<points.length;j++){
+      const wi=weights[i]/Qn, wj=weights[j]/Qn;
+      dsG += wi*wj*K(points[i], points[j]);
+      dsV += wi*wj*G(points[i], points[j]);
+    }
+  }
+  const squash = v => 1 - Math.exp(-v/50);
+  return { g: squash(dsG), v: squash(dsV) };
+}
+
+/* ---------- Lens: local scoring on sphere ---------- */
+function lensScores(){
+  // score by angular distance from lens center
+  const alpha = lens.ang;
+  const useK = (ang)=>Math.exp(-(ang*ang)/ (25)); // Green-ish, tuned
+  const useG = (ang)=>1/(ang+1e-2);               // inverse-gradient in degrees
+  const kernel = lens.mode==='infosophic' ? useK : useG;
+
+  let scores = new Float32Array(points.length);
+  let sum=0;
+  for(let i=0;i<points.length;i++){
+    if(!points[i].visible) { scores[i]=0; continue; }
+    const ang = greatCircleDeg(lens.lon,lens.lat, points[i].lon, points[i].lat);
+    if(ang>alpha) { scores[i]=0; continue; }
+    const s = (weights[i]/Math.max(0.5,cfg.qualityQ)) * kernel(ang);
+    scores[i]=s; sum+=s;
+  }
+  const maxScore = Math.max(1e-6, ...scores);
+  for(let i=0;i<scores.length;i++) scores[i]/=maxScore;
+  const dsLocal = 1 - Math.exp(-sum/20);
+  return {scores, dsLocal};
+}
+
+/* ---------- Dynamic Pareto control ---------- */
+function headStatsForTarget(targetMass){
+  const arr = weights.slice().sort((a,b)=>b-a);
+  let cum=0, k=0; for(k=0;k<arr.length;k++){ cum+=arr[k]; if(cum>=targetMass) break; }
+  return {k:k+1, headFrac:(k+1)/arr.length, mass:Math.min(1,cum)};
+}
+function autoAdjustTau(dtSec){
+  const {headFrac} = headStatsForTarget(cfg.targetMass);
+  const targetHeadFrac = 0.20;
+  const error = headFrac - targetHeadFrac;
+  const step = -1.0 * error * dtSec;
+  cfg.paretoTau = Math.min(1.5, Math.max(0.05, cfg.paretoTau + step));
+  rngTau.value = cfg.paretoTau; labTau.textContent = cfg.paretoTau.toFixed(2); statT.textContent = cfg.paretoTau.toFixed(2);
+  recomputeWeights();
+}
+
+/* ---------- Pareto bar overlay ---------- */
+function drawParetoBar(){
+  if(weights.length===0) return;
+  const x=12, y=12, W=320, H=50;
+  ctx.save();
+  ctx.fillStyle='rgba(16,20,30,.78)'; ctx.strokeStyle='#27304a'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.roundRect(x,y,W,H,10); ctx.fill(); ctx.stroke();
+
+  const arr = weights.slice().sort((a,b)=>b-a);
+  let cum=0; const target=cfg.targetMass; let kStar=arr.length;
+  for(let i=0;i<arr.length;i++){ cum+=arr[i]; if(cum>=target){ kStar=i+1; break; } }
+  const headFrac = kStar/arr.length;
+  const headW = Math.floor(W*headFrac);
+
+  ctx.fillStyle='rgba(110,231,166,.35)'; ctx.fillRect(x+1, y+H-16, headW-2, 10);
+  ctx.fillStyle='rgba(97,218,251,.25)'; ctx.fillRect(x+headW, y+H-16, W-headW-1, 10);
+
+  ctx.fillStyle='#cfe8ff'; ctx.font='12px ui-monospace';
+  ctx.fillText(`Pareto (runtime) — τ=${cfg.paretoTau.toFixed(2)} • head ${kStar}/${arr.length} (${(headFrac*100).toFixed(1)}%) • mass ${Math.min(cum,1).toFixed(2)}`, x+8, y+18);
+
+  statK.textContent = `${kStar}/${arr.length}`; statMass.textContent = Math.min(cum,1).toFixed(2);
+  ctx.restore();
+}
+
+/* ---------- UI + Controls ---------- */
+function syncControls(){
+  rngTau.value = cfg.paretoTau; labTau.textContent = cfg.paretoTau.toFixed(2); statT.textContent = cfg.paretoTau.toFixed(2);
+  chkAutoPareto.checked = cfg.autoPareto;
+  rngTargetMass.value = cfg.targetMass; labTargetMass.textContent = cfg.targetMass.toFixed(2);
+  rngQ.value = cfg.qualityQ; labQ.textContent = cfg.qualityQ.toFixed(2);
+  rngIntent.value = cfg.intentStrength; labIntent.textContent = cfg.intentStrength.toFixed(2);
+  selAxis.value = cfg.intentAxis;
+  rngNu.value = cfg.artNu; labNu.textContent = cfg.artNu;
+  rngPts.value = cfg.artPoints; labPts.textContent = cfg.artPoints;
+  rngMood.value = cfg.moodStrength; labMood.textContent = cfg.moodStrength.toFixed(2);
+  rngLensR.value = lens.ang; labLensR.textContent = `${lens.ang}°`;
+}
+function buildOutlookGrid(){
+  outlookGrid.innerHTML='';
+  DIMENSIONS.forEach((d,i)=>{
+    const label = document.createElement('div');
+    const sw = document.createElement('span'); sw.className='swatch'; sw.style.background = `hsl(${hueForDim(i)} 80% 60%)`;
+    label.appendChild(sw); label.appendChild(document.createTextNode(d));
+    const btn = document.createElement('button'); const isPos = outlook[d]>=0;
+    btn.className='toggle ' + (isPos?'pos':'neg'); btn.textContent=isPos?'Optimistic':'Pessimistic';
+    btn.addEventListener('click', ()=>{ outlook[d]=(outlook[d]>=0)?-1:+1; buildOutlookGrid(); buildART(); });
+    outlookGrid.appendChild(label); outlookGrid.appendChild(btn);
+  });
+}
+buildOutlookGrid(); syncControls();
+
+/* ---------- Planet select ---------- */
+selPlanet.addEventListener('change', e=>{ planet = e.target.value; });
+
+/* ---------- Build field initially ---------- */
+buildART();
+
+/* ---------- Interaction ---------- */
+// Drag globe to rotate
+stage.addEventListener('mousedown', (e)=>{
+  const rect = stage.getBoundingClientRect(); const x=e.clientX-rect.left, y=e.clientY-rect.top;
+  const inv = invProj(x,y);
+  // If inside globe: if near lens circle, drag lens; else drag globe.
+  if(inv){
+    // check if near lens boundary
+    const ang = greatCircleDeg(inv.lon, inv.lat, lens.lon, lens.lat);
+    if(ang <= lens.ang){ lens.dragging=true; }
+    else { globe.dragging=true; globe.lastX=x; globe.lastY=y; }
+  }
+});
+window.addEventListener('mouseup', ()=>{ globe.dragging=false; lens.dragging=false; });
+window.addEventListener('mousemove', (e)=>{
+  const rect = stage.getBoundingClientRect(); const x=e.clientX-rect.left, y=e.clientY-rect.top;
+  if(globe.dragging){
+    // rotate by mouse delta mapped to lon/lat changes
+    const dx = x - globe.lastX, dy = y - globe.lastY;
+    globe.lon0 = ((globe.lon0 - dx*0.2 + 540)%360)-180;
+    globe.lat0 = Math.max(-80, Math.min(80, globe.lat0 + dy*0.2));
+    globe.lastX=x; globe.lastY=y;
+    // reproject all points
+    for(const p of points){ const P=proj(p.lon,p.lat); p.x=P.x; p.y=P.y; p.visible=P.visible; }
+  } else if(lens.dragging){
+    const inv = invProj(x,y); if(inv){ lens.lon = inv.lon; lens.lat = inv.lat; }
+  }
+});
+// Click to lock/unlock nearest visible point (outside lens drag)
+stage.addEventListener('click', (e)=>{
+  if(globe.dragging || lens.dragging) return;
+  const rect=stage.getBoundingClientRect(); const x=e.clientX-rect.left, y=e.clientY-rect.top;
+  // If click maps to globe
+  const inv = invProj(x,y); if(!inv) return;
+  // nearest visible
+  let best=-1, bd=1e9;
+  for(let i=0;i<points.length;i++){
+    if(!points[i].visible) continue;
+    const dx=points[i].x-x, dy=points[i].y-y, d=dx*dx+dy*dy; if(d<bd){ bd=d; best=i; }
+  }
+  if(best>=0){ if(lockSet.has(best)) lockSet.delete(best); else lockSet.add(best); }
+});
+
+/* Controls */
+rngTau.addEventListener('input', e=>{ cfg.paretoTau=parseFloat(e.target.value); labTau.textContent=cfg.paretoTau.toFixed(2); statT.textContent=cfg.paretoTau.toFixed(2); recomputeWeights(); });
+chkAutoPareto.addEventListener('change', e=>{ cfg.autoPareto = e.target.checked; });
+rngTargetMass.addEventListener('input', e=>{ cfg.targetMass = parseFloat(e.target.value); labTargetMass.textContent = cfg.targetMass.toFixed(2); });
+rngQ.addEventListener('input', e=>{ cfg.qualityQ=parseFloat(e.target.value); labQ.textContent=cfg.qualityQ.toFixed(2); });
+rngIntent.addEventListener('input', e=>{ cfg.intentStrength=parseFloat(e.target.value); labIntent.textContent=cfg.intentStrength.toFixed(2); buildART(); });
+selAxis.addEventListener('change', e=>{ cfg.intentAxis=e.target.value; buildART(); });
+rngNu.addEventListener('input', e=>{ cfg.artNu=parseInt(e.target.value,10); labNu.textContent=cfg.artNu; buildART(); });
+rngPts.addEventListener('input', e=>{ cfg.artPoints=parseInt(e.target.value,10); labPts.textContent=cfg.artPoints; buildART(); });
+rngMood.addEventListener('input', e=>{ cfg.moodStrength=parseFloat(e.target.value); labMood.textContent=cfg.moodStrength.toFixed(2); buildART(); });
+
+btnShuffle.addEventListener('click', ()=>{ seed=(seed*1664525+1013904223)>>>0; buildART(); });
+btnClear.addEventListener('click', ()=>{ lockSet.clear(); });
+
+btnApply.addEventListener('click', ()=>{ const parsed=parseSimuLang(simTxt.value); cfg={...cfg,...parsed}; syncControls(); buildART(); });
+btnReset.addEventListener('click', ()=>{ simTxt.value=defaultSimuLang; cfg=parseSimuLang(simTxt.value); syncControls(); buildART(); });
+
+btnLensMode.addEventListener('click', ()=>{ lens.mode = lens.mode==='infosophic' ? 'simulonic' : 'infosophic'; btnLensMode.textContent = lens.mode==='infosophic' ? 'Lens: Infosophic (I)' : 'Lens: Simulonic (S)'; });
+document.addEventListener('keydown', (e)=>{ if(e.key.toLowerCase()==='i') { lens.mode='infosophic'; btnLensMode.textContent='Lens: Infosophic (I)'; } if(e.key.toLowerCase()==='s'){ lens.mode='simulonic'; btnLensMode.textContent='Lens: Simulonic (S)'; } });
+rngLensR.addEventListener('input', e=>{ lens.ang = parseInt(e.target.value,10); labLensR.textContent = `${lens.ang}°`; });
+
+/* ---------- Render ---------- */
+let lastT = performance.now();
+function render(tNow){
+  const dtSec = Math.min(0.1, (tNow - lastT)/1000); lastT = tNow;
+  if(cfg.autoPareto && points.length>0) autoAdjustTau(dtSec);
+
+  const W=stage.clientWidth, H=stage.clientHeight;
+  ctx.clearRect(0,0,W,H);
+  // background stars faint
+  ctx.fillStyle='#070a12'; ctx.fillRect(0,0,W,H);
+
+  // draw globe
+  drawGlobeBase();
+
+  // global ds² ellipse (projected as circle around screen center)
+  const P0 = proj(globe.lon0, globe.lat0); const cx=P0.cx, cy=P0.cy, R=P0.R;
+  const lockedIdx=[...lockSet];
+  const ds=computeDS2Dual(lockedIdx);
+  ctx.strokeStyle='rgba(159,122,234,.85)'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.ellipse(cx, cy, R*0.35*(.6+.6*ds.g), R*0.35*(.6+.6*ds.v), 0, 0, Math.PI*2); ctx.stroke();
+
+  // points on globe
+  let posCount=0, negCount=0;
+  for(let i=0;i<points.length;i++){
+    // project again if globe moved
+    const P=proj(points[i].lon, points[i].lat);
+    const p = points[i]; p.x=P.x; p.y=P.y; p.visible=P.visible;
+    if(!p.visible) continue;
+    const w=weights[i]||0;
+    const rPt = 1.5 + 3.5*w * (H>900?1.2:1.0);
+    const locked=lockSet.has(i);
+    const dimIdx = DIMENSIONS.indexOf(p.dim);
+    const baseHue = (dimIdx*37)%360;
+    const hue = (p.mood>=0)? (baseHue*0.7 + 120*0.3) : (baseHue*0.7 + 0*0.3);
+    const alpha = 0.55 + 0.35*w;
+
+    ctx.beginPath();
+    ctx.fillStyle = locked ? `hsl(160 90% 60% / .95)` : `hsl(${hue} 80% 60% / ${alpha})`;
+    ctx.strokeStyle = locked ? 'rgba(110,231,166,.85)' : (p.mood>=0 ? 'rgba(110,231,166,.28)' : 'rgba(248,113,113,.28)');
+    ctx.lineWidth = locked ? 1.4 : 0.8;
+    ctx.arc(p.x,p.y,rPt*(locked?1.25:1.0),0,Math.PI*2); ctx.fill(); ctx.stroke();
+
+    if(locked){
+      ctx.beginPath(); ctx.setLineDash([3,3]); ctx.strokeStyle='rgba(110,231,166,.25)';
+      ctx.arc(p.x,p.y,rPt*2.0,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+    }
+    if(p.mood>=0) posCount++; else negCount++;
+  }
+
+  // lens overlay on sphere
+  const {scores, dsLocal} = lensScores();
+
+  // Clip to globe before lens
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx,cy,P0.R,0,Math.PI*2); ctx.clip();
+
+  // Heat overlay inside lens small-circle
+  ctx.save();
+  ctx.beginPath(); lensPath(ctx); ctx.clip();
+  for(let i=0;i<points.length;i++){
+    if(scores[i]<=0 || !points[i].visible) continue;
+    const p=points[i], s=scores[i];
+    const a=.25 + .55*s; const col = (lens.mode==='infosophic') ? `hsla(195, 90%, 60%, ${a})` : `hsla(40, 95%, 60%, ${a})`;
+    ctx.beginPath(); ctx.fillStyle=col; ctx.arc(p.x,p.y, 1.8+3*s,0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+
+  // Lens ring and label
+  ctx.lineWidth=2.2; ctx.setLineDash([6,4]);
+  ctx.strokeStyle = lens.mode==='infosophic' ? 'rgba(97,218,251,.9)' : 'rgba(251,191,36,.9)';
+  ctx.beginPath(); lensPath(ctx); ctx.stroke(); ctx.setLineDash([]);
+
+  // Label (project near lens center)
+  const Pc = proj(lens.lon, lens.lat);
+  ctx.fillStyle='rgba(16,20,30,.85)'; ctx.strokeStyle='#27304a'; ctx.lineWidth=1;
+  const label = lens.mode==='infosophic' ? 'Infosophic lens (∇⁻¹)' : 'Simulonic lens (∇¹)⁻¹';
+  const text = `${label} • r=${lens.ang}° • local ds²=${dsLocal.toFixed(3)}`;
+  ctx.font='12px ui-monospace'; const wLab=ctx.measureText(text).width+12, hLab=20;
+  ctx.beginPath(); ctx.roundRect(Pc.x - wLab/2, Pc.y - 30, wLab, hLab, 6); ctx.fill(); ctx.stroke();
+  ctx.fillStyle='#cfe8ff'; ctx.fillText(text, Pc.x - wLab/2 + 6, Pc.y - 16);
+
+  ctx.restore(); // end globe clip
+
+  // Pareto bar
+  drawParetoBar();
+
+  // Stats
+  statG.textContent = ds.g.toFixed(3);
+  statV.textContent = ds.v.toFixed(3);
+  statL.textContent = lockSet.size;
+  statPos.textContent = posCount;
+  statNeg.textContent = negCount;
+
+  requestAnimationFrame(render);
+}
+requestAnimationFrame(render);
+
+/* ---------- First-time labels ---------- */
+labTargetMass.textContent = cfg.targetMass.toFixed(2);
+
+/* ---------- Done ---------- */
+</script>
+</body>
+</html>
